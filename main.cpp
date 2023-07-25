@@ -92,7 +92,7 @@ int main() {
 	}
 	calculation_thread = (calculation_length - k) / threads_amount;
 
-	random_error = (rand() % (calculation_thread - 1)) +1;
+	random_error = (rand() % (calculation_thread - 1)) + 1;
 
 	std::cout << "\n\nКакая-то работа......." << std::endl;
 	std::cout << "\n\tПоток №:\t" << "id:\t\t\t\t\t\t\t\t  Время:";
@@ -169,7 +169,7 @@ void some_work(const std::chrono::milliseconds time_interval, const int calculat
 		set_cursor(15, 16 + thread_number);
 		std::cout << thread_number + 1 << "\t" << std::this_thread::get_id() << "\t";
 
-		if (generate_error.load() == 1 && random_thread == thread_number && random_error <= count && random_error > (count - prb_all.get_step())) {
+		if (generate_error.load() == 1 && random_thread == thread_number && random_error <= count + 1) {
 			try {
 				throw 1;
 			}
