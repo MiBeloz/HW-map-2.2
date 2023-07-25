@@ -15,12 +15,14 @@ std::mutex mtx;
 
 std::atomic_int generate_error = 0;											//Опция генерации случайной ошибки
 int random_error = 0;														//Случайное число ошибки
+int random_thread = 0;														//Случайный поток для ошибки
 
 void set_cursor(const int x, const int y);
-void some_work(ProgressBar& prb_all, const std::chrono::milliseconds time_interval, const int calculation_thread, const int thread_number, std::map<int, std::pair<std::thread::id, double>>& map_thread);
+void some_work(const std::chrono::milliseconds time_interval, const int calculation_thread, const int thread_number, std::map<int, std::pair<std::thread::id, double>>& map_thread);
 
 int main() {
 	srand(unsigned(time(NULL)));
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
 
 	setlocale(LC_ALL, "ru");
 	std::cout << "\tПрогресс бар\n\n" << std::endl;
@@ -42,12 +44,14 @@ int main() {
 		std::cin >> threads_amount;
 	}
 
-	std::cout << "\nУкажите длину расчета(1 - 100, 2 - 200, 3 - 400, 4 - 800, 5 - 1600): ";
+	random_thread = rand() % threads_amount;
+
+	std::cout << "\nУкажите длину расчета(1 - 100, 2 - 200, 3 - 400, 4 - 600, 5 - 800): ";
 	std::cin >> calculation_length;
 	while (calculation_length < 1 || calculation_length > 5) {
 		set_cursor(0, 7);
-		std::cout << "Неккоректный ввод! Укажите длину расчета(1 - 100, 2 - 200, 3 - 400, 4 - 800, 5 - 1600):                                                    ";
-		set_cursor(88, 7);
+		std::cout << "Неккоректный ввод! Укажите длину расчета(1 - 100, 2 - 200, 3 - 400, 4 - 600, 5 - 800):                                                    ";
+		set_cursor(87, 7);
 		std::cin >> calculation_length;
 	}
 	switch (calculation_length) {
@@ -61,16 +65,15 @@ int main() {
 		calculation_length = 400;
 		break;
 	case 4:
-		calculation_length = 800;
+		calculation_length = 600;
 		break;
 	case 5:
-		calculation_length = 1600;
+		calculation_length = 800;
 		break;
 	default:
 		calculation_length = 400;
 		break;
 	}
-	ProgressBar prb_all(calculation_length);								//Класс имитации прогресс бар
 
 	int g_e = 0;
 	std::cout << "\nИмитировать случайную ошибку?(0 - нет, 1 - да): ";
@@ -92,17 +95,24 @@ int main() {
 	random_error = (rand() % (calculation_thread - 1)) + 1;
 
 	std::cout << "\n\nКакая-то работа......." << std::endl;
-	std::cout << "\nОбщий прогресс:";
+	std::cout << "\n\tПоток №:\t" << "id:\t\t\t\t\t\t\t\t  Время:";
 
 	//Создание потоков
 	auto all_time_start = std::chrono::steady_clock::now();
 
 	for (int i = 0; i < threads_amount; ++i) {
 		if (i == 0) {
-			vector_thread.emplace_back(std::thread([&prb_all, calculation_length, calculation_thread, i, &map_id_and_time, k]() {some_work(prb_all, std::chrono::milliseconds(calculation_length), calculation_thread + k, i, map_id_and_time); }));
+			vector_thread.emplace_back(std::thread([calculation_length, calculation_thread, i, &map_id_and_time, k]() {some_work(std::chrono::milliseconds(calculation_length), calculation_thread + k, i, map_id_and_time); }));
 		}
 		else {
-			vector_thread.emplace_back(std::thread([&prb_all, calculation_length, calculation_thread, i, &map_id_and_time]() {some_work(prb_all, std::chrono::milliseconds(calculation_length), calculation_thread, i, map_id_and_time); }));
+			vector_thread.emplace_back(std::thread([calculation_length, calculation_thread, i, &map_id_and_time]() {some_work(std::chrono::milliseconds(calculation_length), calculation_thread, i, map_id_and_time); }));
+		}
+
+		if (i % 2) {
+			calculation_length -= 200;
+		}
+		else {
+			calculation_length += 300;
 		}
 	}
 
@@ -119,20 +129,23 @@ int main() {
 	std::cout << std::endl << std::endl << std::endl;
 
 	//Вывод данных о потоках
+	std::cout << "---------------------------------------\n" << std::endl;
 	for (const auto& it : map_id_and_time) {
-		std::cout << "Поток №" << it.first << "\n\tИдентификатор: " << it.second.first << std::endl;
-		std::cout << "\tВремя потока: " << it.second.second << " сек." << std::endl << std::endl;
+		std::cout << "Поток №" << it.first << ":\tИдентификатор: " << it.second.first << std::endl;
+		std::cout << "\t\tВремя потока: " << it.second.second << " сек." << std::endl << std::endl;
 		all_time += it.second.second;
 	}
 
 	std::cout << "---------------------------------------\n" << std::endl;
 	std::cout << "Затрачено реального времени: " << all_dur.count() << " сек.\n" << std::endl;
-	std::cout << "Общее машинное время: " << all_time << " сек." << std::endl;
+	std::cout << "Общее машинное время: " << all_time << " сек." << std::endl << std::endl;
 	
 	if (generate_error.load() == 2) {
+		std::cout << "---------------------------------------\n" << std::endl;
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 4);
-		std::cout << "\nВ расчетах обнаружена ошибка!" << std::endl;
+		std::cout << "В расчетах обнаружена ошибка!" << std::endl << std::endl;
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
+		std::cout << "---------------------------------------\n" << std::endl;
 	}
 
 	system("pause > nul");
@@ -143,17 +156,20 @@ void set_cursor(const int x, const int y) {
 	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { static_cast<short>(x), static_cast<short>(y) });
 }
 
-void some_work(ProgressBar& prb_all, const std::chrono::milliseconds time_interval, const int calculation_thread, const int thread_number, std::map<int, std::pair<std::thread::id, double>>& map_thread) {
+void some_work(const std::chrono::milliseconds time_interval, const int calculation_thread, const int thread_number, std::map<int, std::pair<std::thread::id, double>>& map_thread) {
+	ProgressBar prb_all(calculation_thread);
 	auto time_start = std::chrono::steady_clock::now();
+	std::chrono::duration<double> dur{};
 
 	int count = 0;
 	while (count < calculation_thread) {
 		std::unique_lock<std::mutex> ul(mtx);
-		count += prb_all.get_step();
+		count++;
 		prb_all++;
-		set_cursor(15, 14);
+		set_cursor(15, 16 + thread_number);
+		std::cout << thread_number + 1 << "\t" << std::this_thread::get_id() << "\t";
 
-		if (generate_error.load() == 1 && random_error <= count && random_error > count - prb_all.get_step()) {
+		if (generate_error.load() == 1 && random_thread == thread_number && random_error <= count && random_error >= (count - prb_all.get_step())) {
 			try {
 				throw 1;
 			}
@@ -165,17 +181,18 @@ void some_work(ProgressBar& prb_all, const std::chrono::milliseconds time_interv
 		else {
 			prb_all.getProgress(false);
 		}
+		
+		if (count >= calculation_thread) {
+			auto time_end = std::chrono::steady_clock::now();
+			dur = time_end - time_start;
+			set_cursor(90, 16 + thread_number);
+			std::cout << static_cast<double>(dur.count()) << "сек.";
+		}
 
 		ul.unlock();
 
-		if (count < calculation_thread) {
-			std::this_thread::sleep_for(time_interval);
-		}
+		std::this_thread::sleep_for(time_interval);
 	}
-
-	auto time_end = std::chrono::steady_clock::now();
-
-	std::chrono::duration<double> dur = time_end - time_start;
 	
 	map_thread.insert(std::make_pair(thread_number + 1, std::make_pair(std::this_thread::get_id(), dur.count())));
 }
